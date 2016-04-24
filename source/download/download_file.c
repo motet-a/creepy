@@ -12,27 +12,35 @@
 #include <unistd.h>
 #include "download.h"
 
+static int              get_terminal_width(void)
+{
+  struct winsize        win;
+
+  ioctl(STDOUT_FILENO, TIOCGWINSZ, &win);
+  return win.ws_col;
+}
+
 static int		download_progressbar(void *p,
 					     curl_off_t dltotal, curl_off_t dlnow,
 					     curl_off_t ultotal, curl_off_t ulnow)
 {
   t_ftp_file		*ftp;
   double		percent;
-  struct winsize	win;
   int			cur;
   int			i;
 
-  (void)ultotal;(void)ulnow;// We are not uploading datas
+  (void)ultotal;
+  (void)ulnow;// We are not uploading datas
   ftp = (t_ftp_file *)p;
   if (dltotal > 0.0)
     {
       percent = dlnow / (double)dltotal;
-      ioctl(STDOUT_FILENO, TIOCGWINSZ, &win); //Get terminal size
+
       cur = (int)(64 * percent);
 
       //Printing progress bar
       int printname_size = printf("%s", ftp->print_name);
-      printf("%*c", win.ws_col - 72 - printname_size, '[');
+      printf("%*c", get_terminal_width() - 72 - printname_size, '[');
       for (i = 0; i < 64; i++)
 	(i < cur) ? printf(">") : printf("_");
       printf("] %3i%% \r", (int)(percent * 100));
@@ -103,9 +111,16 @@ bool			download_file(t_creepy *creepy,
       curl_easy_cleanup(creepy->curl);
 
       if (res == CURLE_OK)
-	download_progressbar(&ftpfile, 100, 100, 100, 100); //To print the 100% bar
+        {
+          // To print the 100% bar
+          download_progressbar(&ftpfile, 100, 100, 100, 100);
+        }
       else if (!ftpfile.print_once)
-	download_progressbar(&ftpfile, 100, 0, 100, 0); //To print the 0% bar when download didn't started
+        {
+          // To print the 0% bar when download didn't started
+          download_progressbar(&ftpfile, 100, 0, 100, 0);
+        }
+
       if (ftpfile.print_once)
 	printf("\n");
 
